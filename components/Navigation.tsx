@@ -3,42 +3,87 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 const Navigation: React.FC = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [textColor, setTextColor] = useState('black');
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+    // ScrollTrigger to change nav color based on scroll progress
+    ScrollTrigger.create({
+      trigger: 'body',
+      start: 'top top',
+      end: '+=3000',
+      onUpdate: (self) => {
+        const progress = self.progress;
+
+        // Change to white when background starts turning gray (progress > 0.6)
+        // Change back to black when scrolling back up
+        if (progress > 0.6) {
+          setTextColor('white');
+        } else {
+          setTextColor('black');
+        }
+      }
+    });
+
+    return () => {
+      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
     };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
-    <nav
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-kees-bg/90 backdrop-blur-md py-4 shadow-sm' : 'bg-transparent py-6'
-        }`}
-    >
+    <nav className="fixed top-0 left-0 w-full z-50 py-6">
       <div className="container mx-auto px-6 flex justify-between items-center">
-        <div className="text-2xl font-display font-bold tracking-tighter text-kees-dark">
+        <div
+          className="text-2xl font-display font-bold tracking-tighter transition-colors duration-500"
+          style={{ color: textColor }}
+        >
           KEES
         </div>
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center space-x-8">
-          <Link href="#about" className="text-sm font-medium hover:text-kees-gold transition-colors">About</Link>
-          <Link href="#features" className="text-sm font-medium hover:text-kees-gold transition-colors">Features</Link>
-          <Link href="#tokenomics" className="text-sm font-medium hover:text-kees-gold transition-colors">Kubic</Link>
-          <button className="bg-kees-dark text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-kees-gold transition-colors duration-300">
+          <Link
+            href="#about"
+            className="text-sm font-medium hover:text-kees-gold transition-colors duration-500"
+            style={{ color: textColor }}
+          >
+            About
+          </Link>
+          <Link
+            href="#features"
+            className="text-sm font-medium hover:text-kees-gold transition-colors duration-500"
+            style={{ color: textColor }}
+          >
+            Features
+          </Link>
+          <Link
+            href="#tokenomics"
+            className="text-sm font-medium hover:text-kees-gold transition-colors duration-500"
+            style={{ color: textColor }}
+          >
+            Kubic
+          </Link>
+          <button
+            className="px-6 py-2 rounded-full text-sm font-medium hover:bg-kees-gold transition-all duration-500"
+            style={{
+              backgroundColor: textColor === 'white' ? 'white' : 'black',
+              color: textColor === 'white' ? 'black' : 'white'
+            }}
+          >
             Join Beta
           </button>
         </div>
 
         {/* Mobile Toggle */}
         <button
-          className="md:hidden text-kees-dark"
+          className="md:hidden transition-colors duration-500"
+          style={{ color: textColor }}
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
           {isMenuOpen ? <X /> : <Menu />}

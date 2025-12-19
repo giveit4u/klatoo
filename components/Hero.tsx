@@ -1,198 +1,732 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
+
+// --- NOISE UTIL ---
+const perm = new Uint8Array(512);
+const p = new Uint8Array(256);
+for (let i = 0; i < 256; i++) p[i] = i;
+for (let i = 255; i > 0; i--) {
+  const r = Math.floor(Math.random() * (i + 1));
+  const t = p[i]; p[i] = p[r]; p[r] = t;
+}
+for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+
+function fade(t: number) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function lerp(t: number, a: number, b: number) { return a + t * (b - a); }
+function grad(hash: number, x: number, y: number, z: number) {
+  const h = hash & 15;
+  const u = h < 8 ? x : y;
+  const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+  return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+}
+function noise(x: number, y: number, z: number) {
+  const X = Math.floor(x) & 255;
+  const Y = Math.floor(y) & 255;
+  const Z = Math.floor(z) & 255;
+  x -= Math.floor(x);
+  y -= Math.floor(y);
+  z -= Math.floor(z);
+  const u = fade(x), v = fade(y), w = fade(z);
+  const A = perm[X] + Y, AA = perm[A] + Z, AB = perm[A + 1] + Z;
+  const B = perm[X + 1] + Y, BA = perm[B] + Z, BB = perm[B + 1] + Z;
+  return lerp(w, lerp(v, lerp(u, grad(perm[AA], x, y, z), grad(perm[BA], x - 1, y, z)), lerp(u, grad(perm[AB], x, y - 1, z), grad(perm[BB], x - 1, y - 1, z))), lerp(v, lerp(u, grad(perm[AA + 1], x, y, z - 1), grad(perm[BA + 1], x - 1, y, z - 1)), lerp(u, grad(perm[AB + 1], x, y - 1, z - 1), grad(perm[BB + 1], x - 1, y - 1, z - 1))));
+}
+
+// --- DETAILED CONTINENT POLYGONS ---
+// 각 대륙을 폴리곤으로 정의하여 실제 지형 형태 표현
+interface ContinentPolygon {
+  name: string;
+  points: { lat: number; lon: number }[];
+  density: number; // 파티클 밀도
+}
+
+const CONTINENTS: ContinentPolygon[] = [
+  // ========== NORTH AMERICA ==========
+  {
+    name: 'North America',
+    density: 1.2,
+    points: [
+      // Alaska
+      { lat: 71, lon: -156 }, { lat: 70, lon: -168 }, { lat: 65, lon: -168 },
+      { lat: 60, lon: -164 }, { lat: 56, lon: -158 }, { lat: 58, lon: -137 },
+      { lat: 60, lon: -135 }, { lat: 69, lon: -140 },
+      // Canada West
+      { lat: 70, lon: -130 }, { lat: 72, lon: -120 }, { lat: 74, lon: -110 },
+      { lat: 78, lon: -95 }, { lat: 80, lon: -80 }, { lat: 78, lon: -70 },
+      // Canada East  
+      { lat: 75, lon: -60 }, { lat: 70, lon: -65 }, { lat: 65, lon: -65 },
+      { lat: 60, lon: -64 }, { lat: 55, lon: -60 }, { lat: 52, lon: -56 },
+      { lat: 48, lon: -52 }, { lat: 45, lon: -60 }, { lat: 42, lon: -70 },
+      // US East Coast
+      { lat: 40, lon: -74 }, { lat: 35, lon: -76 }, { lat: 32, lon: -80 },
+      { lat: 30, lon: -82 }, { lat: 26, lon: -80 }, { lat: 25, lon: -82 },
+      // Gulf Coast
+      { lat: 29, lon: -95 }, { lat: 28, lon: -97 }, { lat: 26, lon: -97 },
+      // Mexico
+      { lat: 23, lon: -106 }, { lat: 20, lon: -105 }, { lat: 17, lon: -101 },
+      { lat: 15, lon: -92 }, { lat: 14, lon: -90 },
+      // Central America
+      { lat: 10, lon: -85 }, { lat: 8, lon: -80 },
+      // Back up West Coast
+      { lat: 9, lon: -79 }, { lat: 12, lon: -87 }, { lat: 16, lon: -95 },
+      { lat: 20, lon: -106 }, { lat: 24, lon: -112 }, { lat: 28, lon: -115 },
+      { lat: 32, lon: -117 }, { lat: 37, lon: -122 }, { lat: 42, lon: -124 },
+      { lat: 48, lon: -125 }, { lat: 52, lon: -128 }, { lat: 58, lon: -136 },
+      { lat: 60, lon: -141 }, { lat: 65, lon: -148 }, { lat: 68, lon: -156 }
+    ]
+  },
+
+  // ========== SOUTH AMERICA ==========
+  {
+    name: 'South America',
+    density: 1.1,
+    points: [
+      // North Coast
+      { lat: 12, lon: -71 }, { lat: 11, lon: -72 }, { lat: 10, lon: -75 },
+      { lat: 8, lon: -77 }, { lat: 5, lon: -77 }, { lat: 2, lon: -79 },
+      { lat: 0, lon: -78 }, { lat: -2, lon: -80 }, { lat: -5, lon: -81 },
+      // West Coast (Andes)
+      { lat: -10, lon: -78 }, { lat: -15, lon: -75 }, { lat: -20, lon: -70 },
+      { lat: -25, lon: -70 }, { lat: -30, lon: -71 }, { lat: -35, lon: -71 },
+      { lat: -40, lon: -73 }, { lat: -45, lon: -73 }, { lat: -50, lon: -74 },
+      { lat: -54, lon: -70 },
+      // Tierra del Fuego
+      { lat: -55, lon: -68 }, { lat: -54, lon: -65 },
+      // East Coast (Atlantic)
+      { lat: -52, lon: -68 }, { lat: -45, lon: -65 }, { lat: -40, lon: -62 },
+      { lat: -35, lon: -57 }, { lat: -30, lon: -51 }, { lat: -25, lon: -48 },
+      { lat: -20, lon: -40 }, { lat: -15, lon: -39 }, { lat: -10, lon: -36 },
+      // Brazil Northeast Bulge
+      { lat: -5, lon: -35 }, { lat: 0, lon: -48 }, { lat: 3, lon: -52 },
+      { lat: 5, lon: -58 }, { lat: 8, lon: -62 }, { lat: 10, lon: -67 }
+    ]
+  },
+
+  // ========== AFRICA ==========
+  {
+    name: 'Africa',
+    density: 1.15,
+    points: [
+      // North Coast (Mediterranean)
+      { lat: 37, lon: -6 }, { lat: 37, lon: 3 }, { lat: 36, lon: 10 },
+      { lat: 34, lon: 18 }, { lat: 32, lon: 25 }, { lat: 31, lon: 32 },
+      // Red Sea
+      { lat: 28, lon: 34 }, { lat: 22, lon: 36 }, { lat: 15, lon: 42 },
+      { lat: 12, lon: 43 },
+      // Horn of Africa
+      { lat: 11, lon: 51 }, { lat: 4, lon: 42 },
+      // East Coast
+      { lat: 0, lon: 40 }, { lat: -5, lon: 39 }, { lat: -10, lon: 40 },
+      { lat: -15, lon: 40 }, { lat: -20, lon: 35 }, { lat: -26, lon: 33 },
+      // South Coast
+      { lat: -34, lon: 26 }, { lat: -34, lon: 18 },
+      // West Coast
+      { lat: -30, lon: 17 }, { lat: -25, lon: 15 }, { lat: -20, lon: 13 },
+      { lat: -15, lon: 12 }, { lat: -10, lon: 13 }, { lat: -5, lon: 12 },
+      { lat: 0, lon: 9 }, { lat: 4, lon: 9 }, { lat: 6, lon: 3 },
+      { lat: 10, lon: -5 }, { lat: 14, lon: -14 }, { lat: 18, lon: -16 },
+      { lat: 21, lon: -17 }, { lat: 26, lon: -13 }, { lat: 30, lon: -10 },
+      { lat: 34, lon: -7 }
+    ]
+  },
+
+  // ========== EUROPE ==========
+  {
+    name: 'Europe',
+    density: 0.9,
+    points: [
+      // Scandinavia
+      { lat: 71, lon: 26 }, { lat: 70, lon: 30 }, { lat: 66, lon: 29 },
+      { lat: 60, lon: 28 }, { lat: 56, lon: 21 }, { lat: 55, lon: 13 },
+      { lat: 58, lon: 11 }, { lat: 62, lon: 6 }, { lat: 69, lon: 18 },
+      // Russia North
+      { lat: 70, lon: 33 }, { lat: 68, lon: 52 },
+      // Russia / Kazakhstan connection
+      { lat: 55, lon: 48 }, { lat: 50, lon: 48 }, { lat: 45, lon: 42 },
+      // Black Sea
+      { lat: 44, lon: 38 }, { lat: 42, lon: 28 },
+      // Mediterranean
+      { lat: 40, lon: 26 }, { lat: 38, lon: 23 }, { lat: 36, lon: 15 },
+      { lat: 38, lon: 9 }, { lat: 40, lon: 3 }, { lat: 43, lon: -1 },
+      // Iberia
+      { lat: 44, lon: -9 }, { lat: 42, lon: -9 }, { lat: 37, lon: -8 },
+      { lat: 36, lon: -6 },
+      // Atlantic Coast
+      { lat: 38, lon: -9 }, { lat: 44, lon: -1 }, { lat: 48, lon: -5 },
+      // British Isles
+      { lat: 50, lon: -5 }, { lat: 54, lon: -3 }, { lat: 58, lon: -3 },
+      { lat: 59, lon: -1 }, { lat: 56, lon: 2 }, { lat: 52, lon: 2 },
+      // North Coast
+      { lat: 51, lon: 4 }, { lat: 53, lon: 7 }, { lat: 54, lon: 9 }
+    ]
+  },
+
+  // ========== ASIA ==========
+  {
+    name: 'Asia',
+    density: 1.5,
+    points: [
+      // Russia connection from Europe
+      { lat: 68, lon: 52 }, { lat: 70, lon: 70 }, { lat: 73, lon: 90 },
+      { lat: 75, lon: 110 }, { lat: 72, lon: 130 }, { lat: 70, lon: 150 },
+      { lat: 67, lon: 169 }, { lat: 64, lon: 178 }, { lat: 61, lon: 175 },
+      // Kamchatka
+      { lat: 56, lon: 160 }, { lat: 50, lon: 156 }, { lat: 45, lon: 142 },
+      // Japan area
+      { lat: 42, lon: 144 }, { lat: 38, lon: 141 }, { lat: 33, lon: 130 },
+      // Korea
+      { lat: 38, lon: 128 }, { lat: 42, lon: 130 },
+      // China East
+      { lat: 40, lon: 124 }, { lat: 35, lon: 120 }, { lat: 30, lon: 122 },
+      { lat: 25, lon: 118 }, { lat: 22, lon: 114 },
+      // Southeast Asia
+      { lat: 18, lon: 109 }, { lat: 10, lon: 104 }, { lat: 6, lon: 101 },
+      { lat: 1, lon: 104 },
+      // Malaysia / Indonesia
+      { lat: -1, lon: 109 }, { lat: -6, lon: 107 }, { lat: -8, lon: 115 },
+      { lat: -8, lon: 124 }, { lat: -3, lon: 135 }, { lat: -1, lon: 141 },
+      { lat: -3, lon: 145 }, { lat: -8, lon: 147 },
+      // Back up
+      { lat: -6, lon: 144 }, { lat: -2, lon: 138 }, { lat: 2, lon: 128 },
+      { lat: 5, lon: 118 }, { lat: 8, lon: 110 }, { lat: 13, lon: 100 },
+      { lat: 18, lon: 94 }, { lat: 22, lon: 88 },
+      // India
+      { lat: 23, lon: 70 }, { lat: 20, lon: 72 }, { lat: 15, lon: 74 },
+      { lat: 10, lon: 77 }, { lat: 8, lon: 78 },
+      // Sri Lanka connection
+      { lat: 10, lon: 80 }, { lat: 15, lon: 81 }, { lat: 19, lon: 83 },
+      { lat: 22, lon: 89 }, { lat: 24, lon: 88 }, { lat: 28, lon: 77 },
+      // Pakistan / Afghanistan
+      { lat: 30, lon: 67 }, { lat: 34, lon: 62 }, { lat: 37, lon: 58 },
+      { lat: 40, lon: 52 }, { lat: 42, lon: 48 },
+      // Back to Russia
+      { lat: 45, lon: 48 }, { lat: 50, lon: 58 }, { lat: 55, lon: 73 },
+      { lat: 60, lon: 85 }, { lat: 65, lon: 100 }
+    ]
+  },
+
+  // ========== OCEANIA (Australia) ==========
+  {
+    name: 'Australia',
+    density: 1.0,
+    points: [
+      // North Coast
+      { lat: -10, lon: 142 }, { lat: -12, lon: 136 }, { lat: -13, lon: 130 },
+      { lat: -12, lon: 127 }, { lat: -16, lon: 124 }, { lat: -20, lon: 119 },
+      // West Coast
+      { lat: -26, lon: 113 }, { lat: -32, lon: 115 }, { lat: -35, lon: 118 },
+      // South Coast
+      { lat: -35, lon: 135 }, { lat: -38, lon: 141 }, { lat: -39, lon: 146 },
+      // East Coast
+      { lat: -37, lon: 150 }, { lat: -33, lon: 151 }, { lat: -28, lon: 153 },
+      { lat: -23, lon: 151 }, { lat: -17, lon: 146 }, { lat: -11, lon: 143 }
+    ]
+  },
+
+  // ========== JAPAN (일본) ==========
+  {
+    name: 'Japan',
+    density: 1.1,
+    points: [
+      // Hokkaido (홋카이도)
+      { lat: 45.5, lon: 141.5 }, { lat: 45, lon: 143 }, { lat: 43, lon: 145 },
+      { lat: 42, lon: 145 }, { lat: 41.5, lon: 141 }, { lat: 42.5, lon: 140 },
+      { lat: 43.5, lon: 141 },
+      // Honshu (혼슈) - North
+      { lat: 41, lon: 140.5 }, { lat: 40, lon: 140 }, { lat: 39, lon: 141.5 },
+      { lat: 38.5, lon: 141 }, { lat: 37, lon: 141 }, { lat: 36, lon: 140.5 },
+      // Honshu - Kanto
+      { lat: 35.5, lon: 140 }, { lat: 35, lon: 139.5 }, { lat: 34.5, lon: 137 },
+      // Honshu - West
+      { lat: 35, lon: 135.5 }, { lat: 35.5, lon: 134 }, { lat: 36, lon: 133 },
+      { lat: 36.5, lon: 137 }, { lat: 37.5, lon: 138 }, { lat: 38, lon: 139.5 },
+      // Kyushu (규슈)
+      { lat: 34, lon: 131 }, { lat: 33, lon: 130 }, { lat: 32, lon: 130.5 },
+      { lat: 31, lon: 131 }, { lat: 32, lon: 132 }, { lat: 33.5, lon: 132 },
+      // Shikoku (시코쿠)
+      { lat: 34, lon: 133.5 }, { lat: 33.5, lon: 134 }, { lat: 34, lon: 134.5 }
+    ]
+  },
+
+  // ========== UNITED KINGDOM (영국) ==========
+  {
+    name: 'UK',
+    density: 0.95,
+    points: [
+      // Scotland (스코틀랜드)
+      { lat: 58.5, lon: -3 }, { lat: 57.5, lon: -2 }, { lat: 57, lon: -2 },
+      { lat: 56, lon: -3 }, { lat: 55.5, lon: -4.5 }, { lat: 55, lon: -6 },
+      { lat: 56, lon: -5.5 }, { lat: 57, lon: -6 }, { lat: 58, lon: -5 },
+      { lat: 58.5, lon: -4 },
+      // England (잉글랜드)
+      { lat: 55, lon: -2 }, { lat: 54, lon: -0.5 }, { lat: 53, lon: 0 },
+      { lat: 52, lon: 1.5 }, { lat: 51.5, lon: 1 }, { lat: 50.5, lon: -1 },
+      { lat: 50, lon: -5 }, { lat: 51, lon: -5 }, { lat: 52, lon: -4.5 },
+      { lat: 53, lon: -3 }, { lat: 54, lon: -3 }
+    ]
+  },
+
+  // ========== NEW ZEALAND (뉴질랜드) ==========
+  {
+    name: 'New Zealand',
+    density: 1.0,
+    points: [
+      // North Island (북섬)
+      { lat: -34.5, lon: 173 }, { lat: -35, lon: 174 }, { lat: -36.5, lon: 175 },
+      { lat: -38, lon: 178 }, { lat: -39, lon: 178 }, { lat: -40, lon: 176 },
+      { lat: -41, lon: 175 }, { lat: -40.5, lon: 173 }, { lat: -39, lon: 174 },
+      { lat: -37, lon: 174.5 }, { lat: -35.5, lon: 173.5 },
+      // South Island (남섬)
+      { lat: -40.5, lon: 173 }, { lat: -42, lon: 174 }, { lat: -43.5, lon: 172.5 },
+      { lat: -45, lon: 170 }, { lat: -46, lon: 168 }, { lat: -46.5, lon: 168 },
+      { lat: -45.5, lon: 170.5 }, { lat: -44, lon: 171 }, { lat: -42.5, lon: 171.5 },
+      { lat: -41, lon: 172 }
+    ]
+  },
+
+  // ========== INDONESIA ISLANDS (인도네시아 주요 섬) ==========
+  {
+    name: 'Indonesia - Java',
+    density: 1.15,
+    points: [
+      // Java (자바)
+      { lat: -6, lon: 105.5 }, { lat: -6.5, lon: 106 }, { lat: -7, lon: 108 },
+      { lat: -8, lon: 111 }, { lat: -8.5, lon: 114 }, { lat: -8.5, lon: 115 },
+      { lat: -8, lon: 114 }, { lat: -7.5, lon: 112 }, { lat: -6.5, lon: 110 },
+      { lat: -6, lon: 107 }
+    ]
+  },
+  {
+    name: 'Indonesia - Sumatra',
+    density: 1.1,
+    points: [
+      // Sumatra (수마트라)
+      { lat: 6, lon: 95 }, { lat: 4, lon: 97 }, { lat: 2, lon: 99 },
+      { lat: 0, lon: 101 }, { lat: -1, lon: 103 }, { lat: -3, lon: 104 },
+      { lat: -5, lon: 105 }, { lat: -6, lon: 104 }, { lat: -4, lon: 102 },
+      { lat: -2, lon: 101 }, { lat: 0, lon: 98 }, { lat: 2, lon: 96 },
+      { lat: 4, lon: 95 }, { lat: 5.5, lon: 95.5 }
+    ]
+  },
+  {
+    name: 'Indonesia - Borneo',
+    density: 1.1,
+    points: [
+      // Borneo (보르네오/칼리만탄)
+      { lat: 7, lon: 117 }, { lat: 6, lon: 116 }, { lat: 4, lon: 115 },
+      { lat: 2, lon: 109 }, { lat: 0, lon: 109 }, { lat: -1, lon: 110 },
+      { lat: -3, lon: 111 }, { lat: -4, lon: 115 }, { lat: -4, lon: 117 },
+      { lat: -2, lon: 118 }, { lat: 0, lon: 118 }, { lat: 2, lon: 117.5 },
+      { lat: 4, lon: 118 }, { lat: 6, lon: 117.5 }
+    ]
+  },
+  {
+    name: 'Indonesia - Sulawesi',
+    density: 1.0,
+    points: [
+      // Sulawesi (술라웨시)
+      { lat: 2, lon: 120 }, { lat: 1, lon: 122 }, { lat: -1, lon: 121 },
+      { lat: -3, lon: 120 }, { lat: -5, lon: 119.5 }, { lat: -5.5, lon: 120 },
+      { lat: -4, lon: 121 }, { lat: -2, lon: 122 }, { lat: 0, lon: 123 },
+      { lat: 1, lon: 124 }, { lat: 1.5, lon: 125 }, { lat: 1, lon: 124 }
+    ]
+  },
+
+  // ========== PHILIPPINES (필리핀) ==========
+  {
+    name: 'Philippines',
+    density: 1.05,
+    points: [
+      // Luzon (루손)
+      { lat: 19, lon: 121 }, { lat: 18.5, lon: 122 }, { lat: 17, lon: 122 },
+      { lat: 15, lon: 121 }, { lat: 14, lon: 120.5 }, { lat: 14.5, lon: 120 },
+      { lat: 16, lon: 120 }, { lat: 17.5, lon: 120.5 }, { lat: 18.5, lon: 120.5 },
+      // Mindanao (민다나오)
+      { lat: 9, lon: 125 }, { lat: 7, lon: 126 }, { lat: 6, lon: 125.5 },
+      { lat: 6, lon: 124 }, { lat: 7, lon: 123.5 }, { lat: 8, lon: 124 },
+      { lat: 9, lon: 124.5 },
+      // Visayas
+      { lat: 12, lon: 123 }, { lat: 11, lon: 124 }, { lat: 10.5, lon: 122.5 },
+      { lat: 11, lon: 122 }, { lat: 12, lon: 122.5 }
+    ]
+  },
+
+  // ========== SRI LANKA (스리랑카) ==========
+  {
+    name: 'Sri Lanka',
+    density: 1.0,
+    points: [
+      { lat: 9.5, lon: 80 }, { lat: 9, lon: 80 }, { lat: 7.5, lon: 79.7 },
+      { lat: 6, lon: 80 }, { lat: 6, lon: 81.5 }, { lat: 7, lon: 81.8 },
+      { lat: 8, lon: 81.2 }, { lat: 9, lon: 81 }, { lat: 9.5, lon: 80.5 }
+    ]
+  },
+
+  // ========== MADAGASCAR (마다가스카르) ==========
+  {
+    name: 'Madagascar',
+    density: 1.05,
+    points: [
+      { lat: -12, lon: 49.5 }, { lat: -14, lon: 50 }, { lat: -16, lon: 50 },
+      { lat: -20, lon: 48 }, { lat: -23, lon: 47 }, { lat: -25, lon: 45 },
+      { lat: -25.5, lon: 44 }, { lat: -24, lon: 43.5 }, { lat: -22, lon: 43.5 },
+      { lat: -18, lon: 44 }, { lat: -15, lon: 46 }, { lat: -13, lon: 48 },
+      { lat: -12.5, lon: 49 }
+    ]
+  },
+
+  // ========== GREENLAND (그린란드 / 북극권 지형) ==========
+  {
+    name: 'Greenland',
+    density: 1.0,
+    points: [
+      { lat: 83, lon: -30 }, { lat: 82, lon: -15 }, { lat: 80, lon: -12 },
+      { lat: 75, lon: -18 }, { lat: 70, lon: -22 }, { lat: 65, lon: -35 },
+      { lat: 60, lon: -45 }, { lat: 60, lon: -50 }, { lat: 65, lon: -55 },
+      { lat: 70, lon: -55 }, { lat: 75, lon: -70 }, { lat: 80, lon: -70 },
+      { lat: 83, lon: -60 }, { lat: 83.5, lon: -40 }
+    ]
+  },
+
+  // ========== ANTARCTICA (남극 대륙) ==========
+  {
+    name: 'Antarctica',
+    density: 1.2,
+    points: [
+      { lat: -60, lon: 0 }, { lat: -62, lon: 30 }, { lat: -65, lon: 60 },
+      { lat: -68, lon: 90 }, { lat: -70, lon: 120 }, { lat: -71, lon: 150 },
+      { lat: -72, lon: 180 }, { lat: -71, lon: -150 }, { lat: -70, lon: -120 },
+      { lat: -68, lon: -90 }, { lat: -65, lon: -60 }, { lat: -62, lon: -30 },
+      // Antarctic Peninsula (남극 반도)
+      { lat: -63, lon: -55 }, { lat: -60, lon: -60 }, { lat: -62, lon: -65 },
+      { lat: -65, lon: -65 }
+    ]
+  }
+];
+
+// 점이 폴리곤 내부에 있는지 확인 (Ray Casting Algorithm)
+function isPointInPolygon(lat: number, lon: number, polygon: { lat: number; lon: number }[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lon, yi = polygon[i].lat;
+    const xj = polygon[j].lon, yj = polygon[j].lat;
+
+    const intersect = ((yi > lat) !== (yj > lat))
+      && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// 폴리곤 가장자리까지의 최소 거리 계산
+function distanceToPolygonEdge(lat: number, lon: number, polygon: { lat: number; lon: number }[]): number {
+  let minDist = 999;
+  for (let i = 0; i < polygon.length; i++) {
+    const p1 = polygon[i];
+    const p2 = polygon[(i + 1) % polygon.length];
+
+    // 각 엣지에 대한 거리 계산 (단순화)
+    const d1 = Math.sqrt(Math.pow(lat - p1.lat, 2) + Math.pow(lon - p1.lon, 2));
+    const d2 = Math.sqrt(Math.pow(lat - p2.lat, 2) + Math.pow(lon - p2.lon, 2));
+    minDist = Math.min(minDist, d1, d2);
+  }
+  return minDist;
+}
+
 
 const Hero: React.FC = () => {
+  const sectionRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const requestRef = useRef<number>(0);
+  const scrollState = useRef({ progress: 0 });
 
   useEffect(() => {
-    if (!canvasRef.current || !containerRef.current) return;
+    if (!canvasRef.current || !containerRef.current || !sectionRef.current) return;
 
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
     if (!context) return;
 
-    // Configuration
-    const particleCount = 1800;
-    const baseRadius = 360;
-    let sphereRadius = baseRadius;
-    let width = containerRef.current.clientWidth;
-    let height = containerRef.current.clientHeight;
+    // Configuration - 파티클 수 증가로 대륙 디테일 향상
+    const baseParticleCount = 32400; // 17280 → 32400 (약 2배 증가)
 
-    // Resize handler to make sphere responsive
-    const resize = () => {
-      width = containerRef.current?.clientWidth || window.innerWidth;
-      height = containerRef.current?.clientHeight || window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
+    const colors = ['#00F0FF', '#00D1FF', '#00A8FF', '#0077FF', '#0044AA'];
+    const opacities = [0.9, 0.7, 0.5];
 
-      // Responsive logic
-      const minDim = Math.min(width, height);
-      sphereRadius = Math.min(minDim * 0.35, baseRadius);
+    let canvasWidth = 0;
+    let canvasHeight = 0;
+
+    const updateCanvasSize = () => {
+      const rect = containerRef.current!.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      canvasWidth = rect.width;
+      canvasHeight = rect.height;
     };
-    window.addEventListener('resize', resize);
-    resize();
+    updateCanvasSize();
+    const resizeObserver = new ResizeObserver(updateCanvasSize);
+    resizeObserver.observe(containerRef.current);
 
-    // Palette: Gold and Brown tones
-    const colors = [
-      '#D4AF37', // Gold
-      '#C19A6B', // Desert Sand (Brownish)
-      '#A08060', // Muted Brown
-      '#D2B48C', // Tan
-      '#8B5A2B'  // Bronze
-    ];
+    // --- 1. GENERATE CONTINENT PARTICLES (POLYGON-BASED) ---
+    const particles: any[] = [];
 
-    // Opacity groups
-    const opacities = [0.6, 0.4, 0.2];
-
-    // Data Generation
-    const particles = Array.from({ length: particleCount }, (_, i) => {
-      const phi = Math.acos(1 - 2 * (i + 0.5) / particleCount);
+    for (let i = 0; i < baseParticleCount; i++) {
+      // Fibonacci sphere for even distribution
+      const phi = Math.acos(1 - 2 * (i + 0.5) / baseParticleCount);
       const theta = Math.PI * (1 + 5 ** 0.5) * (i + 0.5);
 
-      const nx = Math.sin(phi) * Math.cos(theta);
-      const ny = Math.sin(phi) * Math.sin(theta);
-      const nz = Math.cos(phi);
+      const x = Math.sin(phi) * Math.cos(theta);
+      const y = Math.sin(phi) * Math.sin(theta);
+      const z = Math.cos(phi);
 
-      return {
-        nx, ny, nz,
-        size: (Math.random() * 3 + 1) * 4.2,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        baseAlpha: opacities[Math.floor(Math.random() * opacities.length)],
-        rotationOffset: Math.random() * Math.PI,
-        rotationSpeed: (Math.random() - 0.5) * 0.02,
+      // Convert to lat/lon
+      const lat = Math.asin(y) * 180 / Math.PI;
+      const lon = Math.atan2(x, z) * 180 / Math.PI;
 
-        floatPhase: Math.random() * Math.PI * 2,
-        floatSpeed: Math.random() * 0.02 + 0.005,
-        floatAmp: Math.random() * 20 + 10
-      };
-    });
+      // Check if point is inside any continent polygon
+      let isLand = false;
+      let continentDensity = 1.0;
 
-    let mouseX = 0;
-    let mouseY = 0;
-    let targetRotationX = 0;
-    let targetRotationY = 0;
-    let currentRotationX = 0;
-    let currentRotationY = 0;
+      for (const continent of CONTINENTS) {
+        if (isPointInPolygon(lat, lon, continent.points)) {
+          isLand = true;
+          continentDensity = continent.density;
+          break;
+        }
+      }
+
+      if (!isLand) {
+        // Also check distance to polygon edges for particles near coastlines
+        for (const continent of CONTINENTS) {
+          const edgeDist = distanceToPolygonEdge(lat, lon, continent.points);
+
+          // Add particles near coastlines with noise
+          const noiseVal = noise(x * 6.0 + 50, y * 6.0 + 50, z * 6.0 + 50);
+          const threshold = 2.0 + noiseVal * 1.5; // Variable coastline
+
+          if (edgeDist < threshold) {
+            isLand = true;
+            continentDensity = continent.density * 0.8; // Slightly lower density at edges
+            break;
+          }
+        }
+      }
+
+      // Create particle if it's land
+      if (isLand) {
+        // Apply density multiplier
+        if (Math.random() < continentDensity) {
+          particles.push({
+            x, y, z,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            baseAlpha: opacities[Math.floor(Math.random() * opacities.length)],
+            size: (Math.random() * 0.5 + 0.6) * 2.8, // Smaller particles for more detail
+            driftDir: { x, y, z },
+            driftSpeed: Math.random() * 0.4 + 0.1,
+            phase: Math.random() * Math.PI * 2
+          });
+        }
+      }
+    }
+
+    // --- 2. GENERATE GLOBE GRID LINES ---
+    const gridLines: { path: any[] }[] = [];
+    for (let lat = -80; lat <= 80; lat += 20) {
+      const path = [];
+      const latRad = lat * Math.PI / 180;
+      const y = Math.sin(latRad);
+      const r = Math.cos(latRad);
+      for (let i = 0; i <= 64; i++) {
+        const theta = (i / 64) * Math.PI * 2;
+        const x = r * Math.sin(theta);
+        const z = r * Math.cos(theta);
+        path.push({ x, y, z });
+      }
+      gridLines.push({ path });
+    }
+    for (let lon = 0; lon < 360; lon += 20) {
+      const path = [];
+      const lonRad = lon * Math.PI / 180;
+      for (let i = 0; i <= 64; i++) {
+        const latPart = (i / 64) * Math.PI - Math.PI / 2;
+        const y = Math.sin(latPart);
+        const r = Math.cos(latPart);
+        const x = r * Math.sin(lonRad);
+        const z = r * Math.cos(lonRad);
+        path.push({ x, y, z });
+      }
+      gridLines.push({ path });
+    }
+
+
+    let currentRotY = 4.2; // Start at Atlantic
+    let targetRotX = 0;
+    let currentRotX = 0;
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
-      const cx = rect.left + width / 2;
-      const cy = rect.top + height / 2;
-
-      mouseX = e.clientX - cx;
-      mouseY = e.clientY - cy;
-
-      targetRotationY = (e.clientX - rect.left) * 0.0002;
-      targetRotationX = (e.clientY - rect.top) * 0.0002;
+      const cy = rect.height / 2;
+      const mouseY = (e.clientY - rect.top - cy) * 0.0001;
+      targetRotX = mouseY;
     };
     window.addEventListener('mousemove', handleMouseMove);
 
+    ScrollTrigger.create({
+      trigger: sectionRef.current,
+      start: 'top top',
+      end: '+=4000',
+      pin: true,
+      scrub: 1,
+      onUpdate: (self) => {
+        scrollState.current.progress = self.progress;
+      }
+    });
+
     let time = 0;
     const animate = () => {
-      time += 0.005;
-      context.clearRect(0, 0, width, height);
+      time += 0.002;
+      const p = scrollState.current.progress;
 
-      currentRotationY += (targetRotationY + time * 0.1 - currentRotationY) * 0.05;
-      currentRotationX += (targetRotationX - currentRotationX) * 0.05;
+      currentRotY += 0.0008;
+      currentRotX += (targetRotX - currentRotX) * 0.05;
 
-      const cosY = Math.cos(currentRotationY);
-      const sinY = Math.sin(currentRotationY);
-      const cosX = Math.cos(currentRotationX);
-      const sinX = Math.sin(currentRotationX);
+      context.clearRect(0, 0, canvasWidth, canvasHeight);
 
-      const cameraDistance = sphereRadius * 1.5;
-      const responsiveScale = sphereRadius / baseRadius;
+      const minDim = Math.min(canvasWidth, canvasHeight);
+      const baseRadius = minDim * 0.29;
+      const fov = 600;
 
-      const projectedParticles = particles.map(p => {
-        let x = p.nx * sphereRadius;
-        let y = p.ny * sphereRadius;
-        let z = p.nz * sphereRadius;
+      const cosY = Math.cos(currentRotY);
+      const sinY = Math.sin(currentRotY);
+      const cosX = Math.cos(currentRotX);
+      const sinX = Math.sin(currentRotX);
 
-        const amp = p.floatAmp * responsiveScale;
-        x += Math.sin(time * 3 + p.floatPhase) * amp;
-        y += Math.cos(time * 2 + p.floatPhase) * amp;
-        z += Math.sin(time * 4 + p.floatPhase) * amp;
+      // --- DRAW GRID ---
+      context.lineWidth = 0.8;
+      context.strokeStyle = 'rgba(0, 240, 255, 0.35)';
 
-        let x1 = x * cosY - z * sinY;
-        let z1 = z * cosY + x * sinY;
-        let y1 = y * cosX - z1 * sinX;
-        let z2 = z1 * cosX + y * sinX;
+      gridLines.forEach(line => {
+        context.beginPath();
+        let first = true;
+        for (const pt of line.path) {
+          let rx = pt.x * cosY - pt.z * sinY;
+          let rz = pt.z * cosY + pt.x * sinY;
+          let ry = pt.y * cosX - rz * sinX;
+          let rz_final = rz * cosX + pt.y * sinX;
 
-        const scale = cameraDistance / (cameraDistance + z2);
+          rx *= baseRadius;
+          ry *= baseRadius;
+          rz_final *= baseRadius;
 
-        let projX = x1 * scale + width / 2;
-        let projY = y1 * scale + height / 2;
+          const zDepth = fov + rz_final;
+          if (zDepth < 10) { first = true; continue; }
+          const scale = fov / zDepth;
+          const screenX = rx * scale + canvasWidth / 2;
+          const screenY = ry * scale + canvasHeight / 2;
 
-        const dx = (mouseX + width / 2) - projX;
-        const dy = (mouseY + height / 2) - projY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const maxDist = 250 * responsiveScale;
-
-        if (dist < maxDist) {
-          const force = (maxDist - dist) / maxDist;
-          projX += dx * force * 0.15;
-          projY += dy * force * 0.15;
+          if (first) { context.moveTo(screenX, screenY); first = false; }
+          else { context.lineTo(screenX, screenY); }
         }
-
-        return {
-          ...p,
-          px: projX,
-          py: projY,
-          pz: z2,
-          scale,
-          alpha: p.baseAlpha * Math.min(1, scale)
-        };
+        context.stroke();
       });
 
-      projectedParticles.sort((a, b) => b.pz - a.pz);
+      // --- DRAW PARTICLES ---
+      const renderbuf = [];
+      for (let i = 0; i < particles.length; i++) {
+        const pt = particles[i];
+        const expansion = p * pt.driftSpeed * 900;
+        const floatX = Math.sin(time * 1.5 + pt.phase) * p * 15;
+        const floatY = Math.cos(time * 1.2 + pt.phase) * p * 15;
+        const floatZ = Math.sin(time * 1.8 + pt.phase) * p * 15;
 
-      projectedParticles.forEach(p => {
-        if (p.scale > 0) {
-          context.globalAlpha = p.alpha;
-          context.fillStyle = p.color;
+        const currentRadius = baseRadius + expansion;
+        const x = pt.x * currentRadius + floatX;
+        const y = pt.y * currentRadius + floatY;
+        const z = pt.z * currentRadius + floatZ;
 
-          context.save();
-          context.translate(p.px, p.py);
-          context.rotate(p.rotationOffset + time + p.rotationSpeed);
+        let rx = x * cosY - z * sinY;
+        let rz = z * cosY + x * sinY;
+        let ry = y * cosX - rz * sinX;
+        let rz_final = rz * cosX + y * sinX;
 
-          const s = p.size * p.scale * responsiveScale;
+        const zDepth = fov + rz_final;
+        if (zDepth < 10) continue;
 
-          context.fillRect(-s / 2, -s / 2, s, s);
-          context.restore();
+        const scale = fov / zDepth;
+        const screenX = rx * scale + canvasWidth / 2;
+        const screenY = ry * scale + canvasHeight / 2;
+        const size = pt.size * scale;
+
+        let alpha = pt.baseAlpha;
+
+        const depthRatio = rz_final / baseRadius;
+        if (depthRatio > 0) {
+          let depthFade = 1 - (depthRatio * 0.7);
+          if (depthFade < 0.1) depthFade = 0.1;
+          alpha *= depthFade;
         }
-      });
 
+        if (p > 0.85) alpha *= (1 - (p - 0.85) * 6.6);
+
+        renderbuf.push({
+          x: screenX, y: screenY, z: zDepth, size, color: pt.color, alpha
+        });
+      }
+
+      renderbuf.sort((a, b) => b.z - a.z);
+
+      renderbuf.forEach(b => {
+        context.globalAlpha = Math.min(1, Math.max(0, b.alpha));
+        context.fillStyle = b.color;
+        context.beginPath();
+        for (let j = 0; j < 6; j++) {
+          const angle = Math.PI / 3 * j - Math.PI / 6;
+          const px = b.x + b.size * Math.cos(angle);
+          const py = b.y + b.size * Math.sin(angle);
+          if (j === 0) context.moveTo(px, py);
+          else context.lineTo(px, py);
+        }
+        context.closePath();
+        context.fill();
+      });
       context.globalAlpha = 1;
+
       requestRef.current = requestAnimationFrame(animate);
     };
-
     requestRef.current = requestAnimationFrame(animate);
 
     return () => {
-      window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
-      }
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      resizeObserver.disconnect();
+      ScrollTrigger.getAll().forEach(t => t.kill());
     };
   }, []);
 
   return (
-    <section className="relative w-full h-screen flex flex-col justify-center items-center overflow-hidden bg-kees-bg">
-      <div className="absolute inset-0 z-0" ref={containerRef}>
+    <section ref={sectionRef} className="relative w-full z-10 bg-[#050510]">
+      <div className="h-screen w-full sticky top-0 overflow-hidden" ref={containerRef}>
         <canvas ref={canvasRef} className="block w-full h-full" />
-      </div>
 
-      <div className="absolute bottom-12 w-full text-center z-20 pointer-events-none px-4">
-        <h1 className="text-5xl md:text-8xl font-display font-bold text-kees-dark uppercase tracking-tight">
-          Hyper Local SNS
-        </h1>
-        <p className="mt-4 text-kees-gold font-sans font-medium tracking-widest text-sm md:text-base uppercase">
-          Connecting Earthlings
-        </p>
+        <div
+          className="absolute bottom-[20px] left-1/2 -translate-x-1/2 z-20 pointer-events-none text-center mix-blend-screen w-full"
+        >
+          <h1
+            className="font-black uppercase tracking-tighter leading-none text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-400 whitespace-nowrap"
+            style={{
+              fontSize: 'clamp(2rem, 5vw, 4rem)',
+            }}
+          >
+            Hyper Local SNS
+          </h1>
+        </div>
       </div>
     </section>
   );
