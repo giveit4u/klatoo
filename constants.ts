@@ -5,7 +5,7 @@ export const FEATURES: FeatureItem[] = [
     id: 'lbsns',
     title: 'Short-form SNS',
     shortDescription: 'Impactful 15s to 3min video content.',
-    fullDescription: 'KEES optimizes for the modern attention span. Create and consume short-form videos (15s-3min) that deliver key messages quickly. Perfectly tuned for high engagement and rapid information sharing.',
+    fullDescription: 'KLATOO optimizes for the modern attention span. Create and consume short-form videos (15s-3min) that deliver key messages quickly. Perfectly tuned for high engagement and rapid information sharing.',
     icon: 'video',
     stats: [{ label: 'Engagement', value: '+30%' }, { label: 'Duration', value: '15s-3m' }]
   },
@@ -21,7 +21,7 @@ export const FEATURES: FeatureItem[] = [
     id: 'kubic',
     title: 'Kubic',
     shortDescription: 'Hexagonal digital real estate.',
-    fullDescription: 'The core of the KEES ecosystem. Kubics are hexagonal digital assets (~45m²) mapped 1:1 to real-world locations. Own a piece of the digital earth and earn from activity within your hexagon.',
+    fullDescription: 'The core of the KLATOO ecosystem. Kubics are hexagonal digital assets (~45m²) mapped 1:1 to real-world locations. Own a piece of the digital earth and earn from activity within your hexagon.',
     icon: 'hexagon',
     stats: [{ label: 'Area', value: '45m²' }, { label: 'Type', value: 'NFT' }]
   },

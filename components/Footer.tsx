@@ -7,13 +7,13 @@ const Footer: React.FC = () => {
       <div className="container mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-1 md:col-span-2">
-            <h2 className="text-3xl font-display font-bold mb-6">KEES</h2>
+            <h2 className="text-3xl font-display font-bold mb-6">KLATOO</h2>
             <p className="text-gray-400 max-w-sm leading-relaxed">
-              HYPER LOCAL SNS Connecting Earthlings. <br/>
+              HYPER LOCAL SNS Connecting Earthlings. <br />
               A new era of location-based digital interaction and asset ownership.
             </p>
           </div>
-          
+
           <div>
             <h4 className="font-bold mb-6 text-kees-gold uppercase tracking-wider text-sm">Platform</h4>
             <ul className="space-y-4 text-gray-400">
@@ -23,7 +23,7 @@ const Footer: React.FC = () => {
               <li><a href="#" className="hover:text-white transition-colors">Marketplace</a></li>
             </ul>
           </div>
-          
+
           <div>
             <h4 className="font-bold mb-6 text-kees-gold uppercase tracking-wider text-sm">Connect</h4>
             <ul className="space-y-4 text-gray-400">
@@ -34,9 +34,9 @@ const Footer: React.FC = () => {
             </ul>
           </div>
         </div>
-        
+
         <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/10 text-sm text-gray-500">
-          <p>&copy; {new Date().getFullYear()} KEES Inc. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} KLATOO Inc. All rights reserved.</p>
           <div className="flex space-x-6 mt-4 md:mt-0">
             <a href="#" className="hover:text-white transition-colors"><Twitter size={20} /></a>
             <a href="#" className="hover:text-white transition-colors"><Instagram size={20} /></a>

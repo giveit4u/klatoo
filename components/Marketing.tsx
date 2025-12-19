@@ -83,7 +83,7 @@ const Marketing: React.FC = () => {
 
         <div className="col-span-1">
           <p ref={textRef2} className="text-xl md:text-2xl font-light leading-relaxed text-gray-300">
-            From the streets to the global stage, KEES bridges the gap.
+            From the streets to the global stage, KLATOO bridges the gap.
             <br /><br />
             An instinctive journey of speed, flair, and light.
             This is the story of a unique platform, traced between the clubs of local communities and the global digital earth.

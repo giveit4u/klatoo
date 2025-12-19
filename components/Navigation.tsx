@@ -43,7 +43,7 @@ const Navigation: React.FC = () => {
           className="text-2xl font-display font-bold tracking-tighter transition-colors duration-500"
           style={{ color: textColor }}
         >
-          KEES
+          KLATOO
         </div>
 
         {/* Desktop Menu */}
