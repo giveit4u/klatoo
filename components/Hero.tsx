@@ -370,6 +370,7 @@ const Hero: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const requestRef = useRef<number>(0);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const scrollState = useRef({ progress: 0 });
 
   useEffect(() => {
@@ -420,8 +421,18 @@ const Hero: React.FC = () => {
         }
       }
       if (isLand && Math.random() < continentDensity) {
+        // Create random "Outer Space" starting positions for the intro
+        const randPhi = Math.random() * Math.PI * 2;
+        const randTheta = Math.random() * Math.PI;
+        // Significantly increased distance to fill the entire screen area
+        const dist = 2.0 + Math.random() * 10.0;
+        const startX = Math.sin(randTheta) * Math.cos(randPhi) * dist;
+        const startY = Math.cos(randTheta) * dist;
+        const startZ = Math.sin(randTheta) * Math.sin(randPhi) * dist;
+
         particles.push({
-          x, y, z,
+          x, y, z, // Target coordinates
+          startX, startY, startZ, // Starting coordinates for intro
           colorCode: Math.floor(Math.random() * colors.length),
           baseAlpha: opacities[Math.floor(Math.random() * opacities.length)],
           size: (Math.random() * 0.5 + 0.6) * 3.0,
@@ -486,7 +497,24 @@ const Hero: React.FC = () => {
       }
     });
 
+    // --- 3. TEXT FADE-IN ANIMATION (Synchronized with intro) ---
+    // Fade in starting at 2s, finishing at 3s when particles settle.
+    if (titleRef.current) {
+      gsap.fromTo(titleRef.current,
+        { opacity: 0, y: 15 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 1.5,
+          delay: 2.2,
+          ease: "power3.out"
+        }
+      );
+    }
+
     let time = 0;
+    const animStartTime = Date.now();
+    const introDuration = 3000; // 3 seconds as requested
     const animate = () => {
       time += 0.002;
       const p = scrollState.current.progress;
@@ -537,13 +565,21 @@ const Hero: React.FC = () => {
           if (!isFirst) {
             const avgDepth = (prevDepth + normD) / 2;
             const alpha = 0.35 * (1 - avgDepth * 0.9);
-            const clampedAlpha = Math.max(0.03, alpha);
 
-            context.beginPath();
-            context.strokeStyle = `rgba(0, 240, 255, ${clampedAlpha})`;
-            context.moveTo(prevX, prevY);
-            context.lineTo(sx, sy);
-            context.stroke();
+            // INTRO: Grid fades in naturally toward the end of the 3s intro
+            const currentTime = Date.now() - animStartTime;
+            const introProgress = Math.min(1, currentTime / introDuration);
+            const gridIntroFade = Math.max(0, (introProgress - 0.7) * 3.33); // Starts after 70% of 3s
+
+            const clampedAlpha = Math.max(0, alpha * gridIntroFade);
+
+            if (clampedAlpha > 0.01) {
+              context.beginPath();
+              context.strokeStyle = `rgba(0, 240, 255, ${clampedAlpha})`;
+              context.moveTo(prevX, prevY);
+              context.lineTo(sx, sy);
+              context.stroke();
+            }
           }
 
           prevX = sx;
@@ -557,15 +593,34 @@ const Hero: React.FC = () => {
       const renderbuf: any[] = [];
       for (let i = 0; i < particles.length; i++) {
         const pt = particles[i];
+
+        // --- CINEMATIC INTRO PROGRESSION (0 to 1 over 3s) ---
+        const currentTime = Date.now() - animStartTime;
+        const introProgress = Math.min(1, currentTime / introDuration);
+        // Easing for smoother "snapping"
+        const easeIntro = introProgress < 1 ? 1 - Math.pow(1 - introProgress, 3) : 1;
+
+        // 1. Position Interpolation (Random Space -> Globe Continent)
+        const curX = pt.startX + (pt.x - pt.startX) * easeIntro;
+        const curY = pt.startY + (pt.y - pt.startY) * easeIntro;
+        const curZ = pt.startZ + (pt.z - pt.startZ) * easeIntro;
+
+        // 2. Size Interpolation (Large Space Dust -> Fine Continent Particle)
+        // Starts much larger (5x) to ensure screen-filling density at start
+        const introSizeScale = 5.0 - (4.0 * easeIntro);
+
+        // 3. Alpha Fade In
+        const introAlpha = Math.min(1, introProgress * 1.5);
+
         const expansion = p * pt.driftSpeed * 900;
         const floatX = Math.sin(time * 1.5 + pt.phase) * p * 15;
         const floatY = Math.cos(time * 1.2 + pt.phase) * p * 15;
         const floatZ = Math.sin(time * 1.8 + pt.phase) * p * 15;
 
         const currentRadius = baseRadius + expansion;
-        const x_e = pt.x * currentRadius + floatX;
-        const y_e = pt.y * currentRadius + floatY;
-        const z_e = pt.z * currentRadius + floatZ;
+        const x_e = curX * currentRadius + floatX;
+        const y_e = curY * currentRadius + floatY;
+        const z_e = curZ * currentRadius + floatZ;
 
         let rx = x_e * cosY - z_e * sinY;
         let rz = z_e * cosY + x_e * sinY;
@@ -585,8 +640,8 @@ const Hero: React.FC = () => {
         // Responsive size multiplier to maintain visual density
         const responsiveSizeScale = baseRadius / 280;
 
-        let alpha = pt.baseAlpha;
-        let size = pt.size * scale * responsiveSizeScale;
+        let alpha = pt.baseAlpha * introAlpha;
+        let size = pt.size * scale * responsiveSizeScale * introSizeScale;
         let drawColor = colors[pt.colorCode];
 
         // Depth Fading
@@ -686,16 +741,62 @@ const Hero: React.FC = () => {
         <canvas ref={canvasRef} className="block w-full h-full" />
 
         <div
-          className="absolute bottom-[40px] left-1/2 -translate-x-1/2 z-20 pointer-events-none text-center mix-blend-screen w-full"
+          className="absolute bottom-[40px] left-0 z-20 pointer-events-none text-center mix-blend-screen w-full px-[100px]"
+          ref={titleRef}
+          style={{ opacity: 0 }}
         >
-          <h1
-            className="font-black tracking-tighter leading-[1.2] py-1.5 text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-400 whitespace-nowrap"
-            style={{
-              fontSize: 'clamp(1.5rem, 5vw, 3.5rem)',
-            }}
+          <svg
+            viewBox="0 0 2400 150"
+            className="w-full h-auto overflow-visible"
+            style={{ filter: 'drop-shadow(0 0 12px rgba(0, 100, 255, 0.4))' }}
+            preserveAspectRatio="xMidYMid meet"
           >
-            The Digital Earth, Connected to Reality
-          </h1>
+            <defs>
+              <linearGradient id="textGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="white" />
+                <stop offset="100%" stopColor="#0066FF" />
+              </linearGradient>
+
+              <mask id="textMask">
+                <text
+                  x="1200"
+                  y="75"
+                  dy=".35em"
+                  textAnchor="middle"
+                  className="uppercase font-extrabold"
+                  fill="white"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  style={{ fontSize: '100px', letterSpacing: '0.02em' }}
+                >
+                  The Digital Earth, Connected to Reality
+                </text>
+                <text
+                  x="1200"
+                  y="75"
+                  dy=".35em"
+                  textAnchor="middle"
+                  className="uppercase font-extrabold"
+                  fill="black"
+                  stroke="black"
+                  strokeWidth="0"
+                  style={{ fontSize: '100px', letterSpacing: '0.02em' }}
+                >
+                  The Digital Earth, Connected to Reality
+                </text>
+              </mask>
+            </defs>
+
+            <rect
+              x="0"
+              y="0"
+              width="2400"
+              height="150"
+              fill="url(#textGradient)"
+              mask="url(#textMask)"
+            />
+          </svg>
         </div>
       </div>
     </section>
