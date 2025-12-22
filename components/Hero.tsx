@@ -675,8 +675,9 @@ const Hero: React.FC = () => {
           alpha *= Math.min(1.0, transP * 3.0);
         }
 
-        // Aggressive Exponential Fade-out for clear section transition
-        const transAlphaScale = Math.max(0, 1 - Math.pow(transP, 1.8));
+        // Smooth Cine-Fade: Particles gradually become transparent like smoke
+        // Using Cosine ease-out for a very natural, gradual disappearance
+        const transAlphaScale = Math.max(0, Math.cos(transP * Math.PI * 0.5));
         alpha *= transAlphaScale;
 
         let size = pt.size * scale * responsiveSizeScale * introSizeScale * transSizeScale;

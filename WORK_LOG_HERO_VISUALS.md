@@ -43,8 +43,20 @@ The goal was to transform the Hero section into a premium, cinematic experience.
     - **Grid Zoom**: The latitude/longitude grid grows and fades out simultaneously, enhancing the sense of depth.
 - **Performance Tuning**:
     - Reduced scroll distance (+=2000) for faster response.
-    - Optimized alpha decay curves for a clean, non-ghosting transition.
+    - Optimized alpha decay curves to use Cosine Ease-Out for a "smoke-like" gradual disappearance.
     - Sharpened Loading/Intro easing to Quintic Out for faster convergence.
+
+### 2.5. Information Section & Footer Revamp
+- **Design Concept**: "The Vertical Layer" - Digital Earth overlaying reality.
+- **Information Component**:
+    - **Vision**: Parallax text over "Digital Seoul" background.
+    - **Key Features**: Bento Grid layout showcasing LBS, Global Flow, and Assetization.
+    - **Kubic Mechanism**: Step-by-step visualization of content activating land.
+    - **Economy**: Split-screen design explaining revenue share and trading.
+    - **Visuals**: Integrated AI-generated assets (Digital Grid, Kubic Surface, Economy Flow).
+- **Footer**:
+    - Rebranded to **UNDERPIN**.
+    - Minimalist dark grid layout with updated contact info.
 
 ## 3. Technical Implementation Details
 - **Rendering**: HTML5 Canvas (Particles/Grid) & SVG (Title).
@@ -60,4 +72,7 @@ The goal was to transform the Hero section into a premium, cinematic experience.
 - [x] Cinematic Exit (Explosion/Zoom) interaction implemented.
 - [x] High-density 'Fill Particles' layer added for transition.
 - [x] Scroll performance and transition speed optimized.
+- [x] Information Section fully implemented with new design.
+- [x] Footer rebranded to UNDERPIN.
+- [x] Hero fade-out refined (Cosine curve).
 - [x] Final state committed to repository.
