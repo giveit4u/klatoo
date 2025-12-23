@@ -530,6 +530,15 @@ const Hero: React.FC = () => {
       currentRotY += 0.0008 * rotSpeedScale;
       currentRotX += (targetRotX - currentRotX) * 0.05 * rotSpeedScale;
 
+      // Section Background Transition: Seamlessly fade to Information section's black
+      if (sectionRef.current) {
+        // Linear interpolation from #050510 to #000000
+        const r = Math.round(5 * (1 - transP));
+        const g = Math.round(5 * (1 - transP));
+        const b = Math.round(16 * (1 - transP));
+        sectionRef.current.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+      }
+
       context.clearRect(0, 0, canvasWidth, canvasHeight);
 
       const minDim = Math.min(canvasWidth, canvasHeight);

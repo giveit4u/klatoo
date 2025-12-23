@@ -6,6 +6,74 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
+// --- Vision Background Particle Component ---
+const VisionParticles = () => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        let w = canvas.width = window.innerWidth;
+        let h = canvas.height = window.innerHeight;
+        const particles: { x: number; y: number; s: number; vx: number; vy: number; a: number; curA: number }[] = [];
+
+        for (let i = 0; i < 80; i++) {
+            particles.push({
+                x: Math.random() * w,
+                y: Math.random() * h,
+                s: Math.random() * 2 + 1,
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: (Math.random() - 0.5) * 0.3,
+                a: Math.random() * 0.5 + 0.2,
+                curA: 0
+            });
+        }
+
+        const handleResize = () => {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', handleResize);
+
+        let animationFrameId: number;
+        const render = () => {
+            ctx.clearRect(0, 0, w, h);
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.x < 0) p.x = w;
+                if (p.x > w) p.x = 0;
+                if (p.y < 0) p.y = h;
+                if (p.y > h) p.y = 0;
+
+                // Subtle breathing alpha
+                p.curA = p.a * (0.6 + Math.sin(Date.now() * 0.001 + p.x) * 0.4);
+
+                ctx.fillStyle = `rgba(0, 240, 255, ${p.curA})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Add tiny glow
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00F0FF';
+            });
+            animationFrameId = requestAnimationFrame(render);
+        };
+        render();
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, []);
+
+    return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-[5]" />;
+};
+
 export default function Information() {
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +148,21 @@ export default function Information() {
                 delay: 0.2
             });
 
+            // 5. Kubic Section Scanline Animation
+            gsap.fromTo('.kubic-scanline',
+                { top: '0%' },
+                {
+                    top: '100%',
+                    duration: 4,
+                    repeat: -1,
+                    ease: 'none',
+                    scrollTrigger: {
+                        trigger: '.kubic-section',
+                        start: 'top bottom',
+                    }
+                }
+            );
+
         }, containerRef);
 
         return () => ctx.revert();
@@ -94,6 +177,7 @@ export default function Information() {
                 <div className="absolute inset-0 z-0 opacity-40">
                     {/* In a real scenario, <img src="/path/to/vision_digital_layer.png" className="w-full h-full object-cover" /> */}
                     <div className="w-full h-full bg-[url('/assets/vision_digital_layer.png')] bg-cover bg-center" />
+                    <VisionParticles />
                     {/* Fallback gradient if image not available */}
                     <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black" />
                 </div>
@@ -191,8 +275,15 @@ export default function Information() {
 
 
             {/* --- SECTION 3: KUBIC x LBS POSTING --- */}
-            <section className="kubic-section w-full py-32 bg-black relative">
-                <div className="border-t border-b border-white/10 absolute inset-x-0 h-[1px] top-1/2 -translate-y-1/2 z-0 hidden md:block" />
+            <section className="kubic-section w-full py-32 bg-black relative overflow-hidden">
+                {/* Fixed Honeycomb (Interlocking Hexagon) Grid - Zero Overlap Verified */}
+                <div className="absolute inset-0 z-0 opacity-10 pointer-events-none"
+                    style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='42' viewBox='0 0 24 42' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 0 L0 7 V21 L12 28 V42 M12 0 L24 7 M24 21 L12 28' fill='none' stroke='%2300F0FF' stroke-width='1.2'/%3E%3C/svg%3E")`,
+                        backgroundSize: '36px 63px'
+                    }}
+                />
+                <div className="kubic-scanline absolute left-0 w-full h-32 bg-gradient-to-b from-transparent via-[#00F0FF15] to-transparent z-[1] pointer-events-none" />
 
                 <div className="max-w-7xl mx-auto px-6 relative z-10 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
                     {/* Left Copy */}
